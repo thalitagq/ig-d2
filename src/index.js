@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 
-const { v4: uuidv4, validate } = require('uuid');
+const { v4: uuidv4, validate, v4 } = require('uuid');
 
 const app = express();
 app.use(express.json());
@@ -10,19 +10,56 @@ app.use(cors());
 const users = [];
 
 function checksExistsUserAccount(request, response, next) {
-  // Complete aqui
+  const { username } = request.headers;
+  const user = users.find((user) => user.username === username);
+
+  if (user) {
+    request.user = user;
+    next();
+  }
+  else {
+    response.status(404).json({ error: "User not found" });
+  }
 }
 
 function checksCreateTodosUserAvailability(request, response, next) {
-  // Complete aqui
+  const { user } = request
+  if (user.todos.length < 10 || user.pro) {
+    request.user = user
+    next()
+  }
+  else {
+    response.status(403).json({ error: "User has already filled the amount of todos available." })
+  } 
 }
 
 function checksTodoExists(request, response, next) {
-  // Complete aqui
+  const { username } = request.headers
+  const { id } = request.params
+  const user = users.find(u => u.username === username)
+  if(!users.some(user => user.username === username)){
+    response.status(404).json({error: "User not found"})
+  }
+  else if (!validate(id)){
+    response.status(400).json({erro: "Todo id not valid"})
+  }
+  else if (!user.todos.some(todo => todo.id === id)){
+    response.status(404).json({error: "Todo id not found for this user"})
+  }
+  else{
+    request.user = user
+    request.todo = user.todos.filter(todo => todo.id === id)[0]
+    next()
+  }
 }
 
 function findUserById(request, response, next) {
-  // Complete aqui
+  const user = users.filter(user => user.id === request.params.id)[0]
+  if(user){
+    request.user = user
+    next()
+  }
+  response.status(404).json({error: "User not found."})
 }
 
 app.post('/users', (request, response) => {
@@ -117,7 +154,7 @@ app.delete('/todos/:id', checksExistsUserAccount, checksTodoExists, (request, re
 
   user.todos.splice(todoIndex, 1);
 
-  return response.status(204).send();
+  return response.status(204).json();
 });
 
 module.exports = {
